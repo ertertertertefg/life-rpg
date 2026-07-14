@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Life RPG</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--tg-theme-bg-color, #0f0f23);
+            color: var(--tg-theme-text-color, #fff);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .profile-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 30px 20px;
+            text-align: center;
+            border-radius: 0 0 30px 30px;
+        }
+        .avatar {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: #fff;
+            margin: 0 auto 15px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 40px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .username { font-size: 22px; font-weight: bold; margin-bottom: 5px; }
+        .level-badge {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .tabs-nav {
+            display: flex;
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            padding: 5px;
+            margin: 15px;
+            border-radius: 15px;
+            gap: 5px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            background: transparent;
+            color: var(--tg-theme-hint-color, #888);
+            font-size: 14px;
+            font-weight: 600;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .tab-btn.active {
+            background: var(--tg-theme-button-color, #667eea);
+            color: var(--tg-theme-button-text-color, #fff);
+        }
+        .tab-content {
+            display: none;
+            padding: 0 15px 80px;
+            animation: fadeIn 0.3s;
+        }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .stats-grid { display: grid; gap: 15px; }
+        .stat-card {
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            border-radius: 20px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 4px;
+        }
+        .stat-card.intellect::before { background: #4facfe; }
+        .stat-card.strength::before { background: #f093fb; }
+        .stat-card.health::before { background: #4ade80; }
+        .stat-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+        .stat-icon {
+            width: 50px; height: 50px;
+            border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px;
+        }
+        .stat-card.intellect .stat-icon { background: rgba(79, 172, 254, 0.2); }
+        .stat-card.strength .stat-icon { background: rgba(240, 147, 251, 0.2); }
+        .stat-card.health .stat-icon { background: rgba(74, 222, 128, 0.2); }
+        .stat-info h3 { font-size: 18px; margin-bottom: 3px; }
+        .stat-info .level { font-size: 13px; color: var(--tg-theme-hint-color, #888); }
+        .stat-bar {
+            background: rgba(255,255,255,0.1);
+            height: 12px;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+        .stat-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        .stat-card.intellect .stat-fill { background: linear-gradient(90deg, #4facfe, #00f2fe); }
+        .stat-card.strength .stat-fill { background: linear-gradient(90deg, #f093fb, #f5576c); }
+        .stat-card.health .stat-fill { background: linear-gradient(90deg, #4ade80, #22c55e); }
+        .stat-value { text-align: right; font-size: 24px; font-weight: bold; }
+        .total-xp {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+        }
+        .total-xp h2 { font-size: 16px; opacity: 0.9; margin-bottom: 5px; }
+        .total-xp .xp-number { font-size: 36px; font-weight: bold; }
+        .add-section { text-align: center; padding: 20px 0; }
+        .add-section h2 { margin-bottom: 20px; font-size: 20px; }
+        .category-select {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .cat-btn {
+            padding: 20px 10px;
+            border: 2px solid transparent;
+            border-radius: 15px;
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            color: var(--tg-theme-text-color, #fff);
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .cat-btn.selected {
+            border-color: #667eea;
+            background: rgba(102, 126, 234, 0.2);
+        }
+        .cat-btn .emoji { display: block; font-size: 30px; margin-bottom: 5px; }
+        .achievement-input {
+            width: 100%;
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            color: var(--tg-theme-text-color, #fff);
+            font-size: 16px;
+            margin-bottom: 15px;
+            outline: none;
+        }
+        .achievement-input:focus { border-color: #667eea; }
+        .add-btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .add-btn:active { transform: scale(0.98); }
+        .recent-achievements { margin-top: 30px; }
+        .recent-achievements h3 {
+            margin-bottom: 15px;
+            font-size: 16px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+        .achievement-item {
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            padding: 15px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .achievement-item .ach-text { flex: 1; }
+        .achievement-item .ach-stat {
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 10px;
+            margin-left: 10px;
+        }
+        .ach-stat.intellect { background: rgba(79, 172, 254, 0.2); color: #4facfe; }
+        .ach-stat.strength { background: rgba(240, 147, 251, 0.2); color: #f093fb; }
+        .ach-stat.health { background: rgba(74, 222, 128, 0.2); color: #4ade80; }
+        .goals-section h2 { margin-bottom: 20px; font-size: 20px; }
+        .goal-input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .goal-input {
+            flex: 1;
+            padding: 15px;
+            border-radius: 15px;
+            border: 2px solid rgba(255,255,255,0.1);
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            color: var(--tg-theme-text-color, #fff);
+            font-size: 16px;
+            outline: none;
+        }
+        .goal-add-btn {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 15px;
+            background: #667eea;
+            color: #fff;
+            font-size: 20px;
+            cursor: pointer;
+        }
+        .goals-list { display: flex; flex-direction: column; gap: 10px; }
+        .goal-item {
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            padding: 15px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .goal-checkbox {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            border: 2px solid #667eea;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .goal-checkbox.completed {
+            background: #4ade80;
+            border-color: #4ade80;
+        }
+        .goal-checkbox.completed::after {
+            content: '✓';
+            color: #fff;
+            font-weight: bold;
+        }
+        .goal-text { flex: 1; font-size: 16px; }
+        .goal-text.completed { text-decoration: line-through; opacity: 0.5; }
+        .goal-delete {
+            background: none;
+            border: none;
+            color: #f5576c;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 5px;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: var(--tg-theme-hint-color, #888);
+        }
+        .empty-state .emoji { font-size: 50px; margin-bottom: 10px; display: block; }
+        .leaderboard-item {
+            background: var(--tg-theme-secondary-bg-color, #1a1a3e);
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .leaderboard-rank {
+            width: 35px; height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .leaderboard-rank.top3 { background: linear-gradient(135deg, #ffd700, #ffaa00); }
+        .leaderboard-info { flex: 1; }
+        .leaderboard-total { font-size: 20px; font-weight: bold; }
+        .leaderboard-stats { font-size: 12px; color: #888; margin-top: 3px; }
+        .sync-status {
+            position: fixed;
+            top: 10px; right: 10px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: bold;
+            z-index: 1000;
+            transition: all 0.3s;
+        }
+        .sync-status.syncing { background: #f59e0b; color: #000; }
+        .sync-status.synced { background: #4ade80; color: #000; }
+        .sync-status.error { background: #f5576c; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <div class="sync-status synced" id="syncStatus">✅ Синхронизировано</div>
+
+    <div class="profile-header">
+        <div class="avatar">🧙‍♂️</div>
+        <div class="username" id="username">Герой</div>
+        <div class="level-badge">⭐ Уровень <span id="userLevel">1</span></div>
+    </div>
+
+    <div class="tabs-nav">
+        <button class="tab-btn active" onclick="switchTab('progress')">📊 Прогресс</button>
+        <button class="tab-btn" onclick="switchTab('add')">➕ Добавить</button>
+        <button class="tab-btn" onclick="switchTab('goals')">🎯 Цели</button>
+        <button class="tab-btn" onclick="switchTab('leaderboard')">🏆 Топ</button>
+    </div>
+
+    <!-- ПРОГРЕСС -->
+    <div id="progress" class="tab-content active">
+        <div class="stats-grid">
+            <div class="stat-card intellect">
+                <div class="stat-header">
+                    <div class="stat-icon">🧠</div>
+                    <div class="stat-info">
+                        <h3>Интеллект</h3>
+                        <div class="level">Уровень <span id="intellectLevel">1</span></div>
+                    </div>
+                </div>
+                <div class="stat-bar">
+                    <div class="stat-fill" id="intellectBar" style="width: 0%"></div>
+                </div>
+                <div class="stat-value" id="intellectValue">0</div>
+            </div>
+            <div class="stat-card strength">
+                <div class="stat-header">
+                    <div class="stat-icon">💪</div>
+                    <div class="stat-info">
+                        <h3>Сила</h3>
+                        <div class="level">Уровень <span id="strengthLevel">1</span></div>
+                    </div>
+                </div>
+                <div class="stat-bar">
+                    <div class="stat-fill" id="strengthBar" style="width: 0%"></div>
+                </div>
+                <div class="stat-value" id="strengthValue">0</div>
+            </div>
+            <div class="stat-card health">
+                <div class="stat-header">
+                    <div class="stat-icon">❤️</div>
+                    <div class="stat-info">
+                        <h3>Здоровье</h3>
+                        <div class="level">Уровень <span id="healthLevel">1</span></div>
+                    </div>
+                </div>
+                <div class="stat-bar">
+                    <div class="stat-fill" id="healthBar" style="width: 0%"></div>
+                </div>
+                <div class="stat-value" id="healthValue">0</div>
+            </div>
+        </div>
+        <div class="total-xp">
+            <h2>🏆 Общий опыт</h2>
+            <div class="xp-number" id="totalXP">0</div>
+        </div>
+    </div>
+
+    <!-- ДОБАВИТЬ -->
+    <div id="add" class="tab-content">
+        <div class="add-section">
+            <h2>Выбери характеристику</h2>
+            <div class="category-select">
+                <button class="cat-btn selected" onclick="selectCategory('intellect')" data-cat="intellect">
+                    <span class="emoji">🧠</span>Интеллект
+                </button>
+                <button class="cat-btn" onclick="selectCategory('strength')" data-cat="strength">
+                    <span class="emoji">💪</span>Сила
+                </button>
+                <button class="cat-btn" onclick="selectCategory('health')" data-cat="health">
+                    <span class="emoji">❤️</span>Здоровье
+                </button>
+            </div>
+            <input type="text" class="achievement-input" id="achievementText" 
+                   placeholder="Что ты сделал? (например: 'Прочитал книгу')">
+            <button class="add-btn" onclick="addAchievement()">⚡ Добавить +1 очко</button>
+            <div class="recent-achievements">
+                <h3>📜 Последние достижения</h3>
+                <div id="achievementsList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ЦЕЛИ -->
+    <div id="goals" class="tab-content">
+        <div class="goals-section">
+            <h2>🎯 Мои цели</h2>
+            <div class="goal-input-group">
+                <input type="text" class="goal-input" id="goalInput" placeholder="Новая цель...">
+                <button class="goal-add-btn" onclick="addGoal()">+</button>
+            </div>
+            <div class="goals-list" id="goalsList">
+                <div class="empty-state">
+                    <span class="emoji">📝</span>
+                    <p>Пока нет целей. Добавь первую!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ТОП -->
+    <div id="leaderboard" class="tab-content">
+        <div class="goals-section">
+            <h2>🏆 Рейтинг игроков</h2>
+            <div id="leaderboardList">
+                <div class="empty-state">
+                    <span class="emoji">🌍</span>
+                    <p>Загрузка рейтинга...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== НАСТРОЙКИ ==========
+        // Локально для теста, потом заменишь на Railway URL
+        const API_URL = window.location.origin + "/api";
+        
+        let tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        tg.setHeaderColor(tg.themeParams.bg_color || '#0f0f23');
+        tg.setBackgroundColor(tg.themeParams.bg_color || '#0f0f23');
+
+        let user = tg.initDataUnsafe.user;
+        let userId = user ? user.id : 'guest_' + Math.random().toString(36).substr(2, 9);
+        
+        if (user) {
+            document.getElementById('username').textContent = user.first_name || 'Герой';
+        }
+
+        // ========== ДАННЫЕ ==========
+        let stats = { intellect: 0, strength: 0, health: 0 };
+        let achievements = [];
+        let goals = [];
+        let selectedCategory = 'intellect';
+        let isSaving = false;
+
+        // ========== СЕРВЕРНАЯ СИНХРОНИЗАЦИЯ ==========
+        
+        function setSyncStatus(status, text) {
+            let el = document.getElementById('syncStatus');
+            el.className = 'sync-status ' + status;
+            el.textContent = text;
+        }
+
+        async function loadFromServer() {
+            setSyncStatus('syncing', '⏳ Загрузка...');
+            try {
+                let res = await fetch(API_URL + "/get_stats", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_id: userId })
+                });
+                let data = await res.json();
+                
+                stats = {
+                    intellect: data.intellect || 0,
+                    strength: data.strength || 0,
+                    health: data.health || 0
+                };
+                achievements = data.achievements || [];
+                goals = data.goals || [];
+                
+                updateDisplay();
+                renderAchievements();
+                renderGoals();
+                setSyncStatus('synced', '✅ Синхронизировано');
+            } catch (e) {
+                console.error('Load error:', e);
+                setSyncStatus('error', '❌ Ошибка загрузки');
+                // Fallback на localStorage
+                loadFromLocal();
+            }
+        }
+
+        async function saveToServer() {
+            if (isSaving) return;
+            isSaving = true;
+            setSyncStatus('syncing', '⏳ Сохранение...');
+            
+            try {
+                await fetch(API_URL + "/save_stats", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        data: {
+                            intellect: stats.intellect,
+                            strength: stats.strength,
+                            health: stats.health,
+                            achievements: achievements,
+                            goals: goals
+                        }
+                    })
+                });
+                setSyncStatus('synced', '✅ Сохранено');
+            } catch (e) {
+                console.error('Save error:', e);
+                setSyncStatus('error', '❌ Ошибка сохранения');
+                // Fallback на localStorage
+                saveToLocal();
+            } finally {
+                isSaving = false;
+            }
+        }
+
+        // Fallback localStorage
+        function loadFromLocal() {
+            stats = JSON.parse(localStorage.getItem('liferpg_stats')) || stats;
+            achievements = JSON.parse(localStorage.getItem('liferpg_achievements')) || [];
+            goals = JSON.parse(localStorage.getItem('liferpg_goals')) || [];
+            updateDisplay();
+            renderAchievements();
+            renderGoals();
+        }
+
+        function saveToLocal() {
+            localStorage.setItem('liferpg_stats', JSON.stringify(stats));
+            localStorage.setItem('liferpg_achievements', JSON.stringify(achievements));
+            localStorage.setItem('liferpg_goals', JSON.stringify(goals));
+        }
+
+        // ========== UI ФУНКЦИИ ==========
+
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+            
+            if (tabName === 'leaderboard') loadLeaderboard();
+            
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+
+        function selectCategory(cat) {
+            selectedCategory = cat;
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.classList.toggle('selected', btn.dataset.cat === cat);
+            });
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('light');
+        }
+
+        function getLevel(points) { return Math.floor(points / 10) + 1; }
+        function getProgress(points) { return (points % 10) * 10; }
+
+        function updateDisplay() {
+            ['intellect', 'strength', 'health'].forEach(cat => {
+                document.getElementById(cat + 'Value').textContent = stats[cat];
+                document.getElementById(cat + 'Level').textContent = getLevel(stats[cat]);
+                document.getElementById(cat + 'Bar').style.width = getProgress(stats[cat]) + '%';
+            });
+            let total = stats.intellect + stats.strength + stats.health;
+            document.getElementById('totalXP').textContent = total;
+            document.getElementById('userLevel').textContent = getLevel(total);
+        }
+
+        async function addAchievement() {
+            let text = document.getElementById('achievementText').value.trim();
+            if (!text) {
+                if (tg.showAlert) tg.showAlert('Введи описание достижения!');
+                return;
+            }
+
+            stats[selectedCategory]++;
+            achievements.unshift({
+                text: text,
+                category: selectedCategory,
+                date: new Date().toLocaleString('ru-RU'),
+                emoji: selectedCategory === 'intellect' ? '🧠' : 
+                       selectedCategory === 'strength' ? '💪' : '❤️'
+            });
+            if (achievements.length > 50) achievements.pop();
+            
+            document.getElementById('achievementText').value = '';
+            updateDisplay();
+            renderAchievements();
+            await saveToServer();
+
+            if (tg.HapticFeedback) {
+                tg.HapticFeedback.notificationOccurred('success');
+                tg.HapticFeedback.impactOccurred('heavy');
+            }
+            
+            let catNames = { intellect: 'Интеллект', strength: 'Сила', health: 'Здоровье' };
+            if (tg.showPopup) {
+                tg.showPopup({
+                    title: '⚡ +1 к ' + catNames[selectedCategory],
+                    message: '"' + text + '"\n\nТак держать, герой!',
+                    buttons: [{type: 'ok', text: 'Круто!'}]
+                });
+            }
+        }
+
+        function renderAchievements() {
+            let container = document.getElementById('achievementsList');
+            if (achievements.length === 0) {
+                container.innerHTML = '<div class="empty-state"><span class="emoji">🌟</span><p>Пока нет достижений. Добавь первое!</p></div>';
+                return;
+            }
+            container.innerHTML = achievements.map(a => `
+                <div class="achievement-item">
+                    <div class="ach-text">
+                        <div>${a.emoji} ${a.text}</div>
+                        <small style="color: #888;">${a.date}</small>
+                    </div>
+                    <span class="ach-stat ${a.category}">+1</span>
+                </div>
+            `).join('');
+        }
+
+        async function addGoal() {
+            let text = document.getElementById('goalInput').value.trim();
+            if (!text) return;
+            goals.push({ id: Date.now(), text: text, completed: false });
+            document.getElementById('goalInput').value = '';
+            renderGoals();
+            await saveToServer();
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred('medium');
+        }
+
+        function toggleGoal(id) {
+            let goal = goals.find(g => g.id === id);
+            if (goal) {
+                goal.completed = !goal.completed;
+                renderGoals();
+                saveToServer();
+                if (goal.completed && tg.HapticFeedback) tg.HapticFeedback.notificationOccurred('success');
+            }
+        }
+
+        function deleteGoal(id) {
+            goals = goals.filter(g => g.id !== id);
+            renderGoals();
+            saveToServer();
+        }
+
+        function renderGoals() {
+            let container = document.getElementById('goalsList');
+            if (goals.length === 0) {
+                container.innerHTML = '<div class="empty-state"><span class="emoji">📝</span><p>Пока нет целей. Добавь первую!</p></div>';
+                return;
+            }
+            container.innerHTML = goals.map(g => `
+                <div class="goal-item">
+                    <div class="goal-checkbox ${g.completed ? 'completed' : ''}" onclick="toggleGoal(${g.id})"></div>
+                    <div class="goal-text ${g.completed ? 'completed' : ''}">${g.text}</div>
+                    <button class="goal-delete" onclick="deleteGoal(${g.id})">🗑️</button>
+                </div>
+            `).join('');
+        }
+
+        async function loadLeaderboard() {
+            let container = document.getElementById('leaderboardList');
+            container.innerHTML = '<div class="empty-state"><span class="emoji">⏳</span><p>Загрузка...</p></div>';
+            try {
+                let res = await fetch(API_URL + "/leaderboard");
+                let data = await res.json();
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="empty-state"><span class="emoji">🌍</span><p>Пока никто не играет. Будь первым!</p></div>';
+                    return;
+                }
+                container.innerHTML = data.map((u, i) => `
+                    <div class="leaderboard-item">
+                        <div class="leaderboard-rank ${i < 3 ? 'top3' : ''}">${i + 1}</div>
+                        <div class="leaderboard-info">
+                            <div class="leaderboard-total">🏆 ${u.total} XP</div>
+                            <div class="leaderboard-stats">🧠 ${u.intellect} | 💪 ${u.strength} | ❤️ ${u.health}</div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) {
+                container.innerHTML = '<div class="empty-state"><span class="emoji">❌</span><p>Ошибка загрузки рейтинга</p></div>';
+            }
+        }
+
+        // Enter handlers
+        document.getElementById('achievementText').addEventListener('keypress', e => {
+            if (e.key === 'Enter') addAchievement();
+        });
+        document.getElementById('goalInput').addEventListener('keypress', e => {
+            if (e.key === 'Enter') addGoal();
+        });
+
+        // ========== ЗАПУСК ==========
+        loadFromServer();
+    </script>
+</body>
+</html>
